@@ -1,0 +1,65 @@
+\begin{denotation}[2.8cm]
+
+	\item[RGB 图像]  包含红 (Red)、绿 (Green)、蓝 (Blue)通道，但不含透明 (Alpha) 通道的图像
+	\item[RGB-D 图像]  包含红 (Red)、绿 (Green)、蓝 (Blue)、深度 (Depth) 通道，但不含透明 (Alpha) 通道的图像
+	\item[Mask]     遮罩，即只有透明 (Alpha) 通道的图像
+	\item[RGBA 图像] 包含红 (Red)、绿 (Green)、蓝 (Blue)、透明 (Alpha) 通道的图像
+
+	\item[Ground Truth, GT] 真实情况，真实值
+
+	\item[GPU]      图形处理器 (Graphics Processing Unit)
+	\item[GPGPU, GP\textsuperscript{2}U]
+	图形处理器通用计算 (General-purpose Computing on Graphics Processing Units)
+	\item[CUDA]     统一计算架构 (Compute Unified Device Architecture)，NVIDIA 公司对 GPGPU 的正式名称
+
+
+	% \item[SIFT]    尺度不变特征变换 (Scale-invariant feature transform)
+
+	\item[Vanilla]    基本版、传统版
+
+	\item[AE]         自编码器 (Autoencoder)
+	\item[VAE]        变分自编码器 (Variational Autoencoder)
+	\item[GAN]        生成对抗网络 (Generative Adversarial Network)
+
+	\item[FC]         全连接层 (Fully Connected Layer)
+	\item[MLP]        多层感知机 (Multilayer Perceptron)
+	\item[CNN]        卷积神经网络 (Convolutional Neural Network)
+	\item[PointSetGen\cite{pointsetgen}]点云生成网络
+	\item[PointNet\cite{pointnet}]   点云神经网络
+
+	% \item[r-GAN]      原始数据 GAN (Raw GAN, r-GAN)
+	% \item[l-GAN]      隐空间 GAN (Latent-space GAN)
+
+	% \item[PointNet++] 改进点云神经网络
+	% \item[PointCNN]   点云卷积神经网络 (Point Convolutional Neural Network)
+
+	\item[$S$]        点云，即点的集合 $S = \{\bm p_i\}_{i=0}^{N - 1}
+		= \{(x_i, y_i, z_i)^T\}_{i=0}^{N - 1}$
+
+	\item[$\bm x$]    深度生成模型所生成的数据
+	\item[$\bm z$]    深度生成模型的隐向量
+
+
+	\item[$\log(\cdot)$] 以 $\mathrm{e}$ 为底数的自然对数
+	\item[$\Norm{\bm x}_p$] $p$ 范数，即
+	$\Norm{\bm x}_p ={\left( \sum_{i} \left| x_i \right|^p \right)}^{1/p}$
+
+	\item[$f: A \to B$]          定义域为 $A$，值域为 $B$ 的函数
+	\item[$f \circ g$]           函数 $f, g$ 构成的复合函数，即 $(f \circ g)(\cdot) = f(g(\cdot))$
+
+	\item[$f(\bm x; \bm\theta)$] 以 $\bm\theta$ 为参数且输入为 $\bm x$ 的函数，可简记为 $f(\bm x)$
+	\item[$\Loss(\bm\theta)$] 损失函数，衡量模型输出与真实情况的差距。$\bm\theta$ 为模型参数
+
+	\item[$p(\bm x; \bm\theta)$] 以 $\bm\theta$ 为参数且在连续向量 $\bm x$ 上的概率密度函数，可简记为 $p(\bm x)$
+	\item[$x \sim p(\bm x; \bm\theta)$] 随机向量 $\bm x$ 服从一个概率密度函数为 $p(\bm x; \bm\theta)$ 的分布
+	\item[$\EXPECT{\bm x \sim p(\bm x; \bm\theta)}{f(\bm x)}$] 随机变量 $f(\bm x)$ 的数学期望值，其中随机向量 $\bm x$ 服从一个概率密度函数为  $p(\bm x; \bm\theta)$ 的分布，可简记为 $\EXPECT{\bm x}{f(\bm x)}$
+	\item[$\NormDist(\bm\mu,\bm\Sigma)$] 数学期望值为 $\bm\mu$ 且协方差矩阵为 $\bm\Sigma$ 的正态分布
+	\item[$\mathrm{diag}(\bm v)$] 以向量 $\bm v$ 为对角线的对角方阵
+	\item[$\odot$] 张量的逐元素相乘 (Element-wise Product)
+
+	\item[$\DKL{p}{q}$] 分布 $p, q$ 的 Kullback-Leibler 散度
+	\item[$\DJS{p}{q}$] 分布 $p, q$ 的 Jensen–Shannon 散度
+
+	\item[$\DCD{S_1}{S_2}$]  点集 $S_1, S_2$ 的 Chamfer 距离 (Chamfer Distance)
+	\item[$\DEMD{S_1}{S_2}$] 点集 $S_1, S_2$ 的 推土机距离 (Earth Mover's Distance)
+\end{denotation}

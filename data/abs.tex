@@ -1,0 +1,85 @@
+
+% 定义中英文摘要和关键字
+\begin{cabstract}
+	% 对于人类来说，理解与分析图像视频、三维物体等，是一件易如反掌的任务。
+	% 然而对于计算机来说，完成同样的任务却难于上青天。
+
+	% 计算机视觉就是就是一门研究如何让计算机完成上述任务的学科。
+	随着互联网数据的飞速增长以及计算机硬件的日新月异，
+	计算机视觉与深度学习取得了突飞猛进、前所未有的进展。
+	% 借助大数据和深度学习的方法，
+	目前，已有工作可以在图像分类
+	%、物体识别、物体分割
+	、图像生成等任务上取得相当可观的结果。然而，对于三维物体的分析与理解，相关研究才刚刚起步。
+	与图像、视频等二维数据相比，三维数据的形式多样。
+	诸如点云、三角面片等不规则的表示，难以被传统算法直接处理。这也制约着三维深度学习的发展。
+
+	% 与图像、视频等二维数据相比，三维数据尺寸大、形式杂、数量少。因此，要解决好这类任务，我们面临的困难更多。
+	% 首先，三维数据在表现形式上比图像等二维数据多了一维。
+	% 直接使用已有算法会使得计算量增长一个数量级，结果自然会受限于时间和硬件资源的限制。
+	% 其次，三维数据的表示形式多样。诸如点云、三角面片等不规则的表示，根本无法被已有算法直接处理。
+	% 最后，三维数据通常由传感器采集或者由艺术师设计。由于人力物力等客观因素的限制，能够被收集到的三维数据少之又少。数据驱动算法的表现，也必将受限于数据的规模。
+
+	PointSetGen\cite{pointsetgen} 是第一个将点云引入三维深度学习的工作。
+	此工作可以从单张图像中以点云的形式重建出物体的三维结构，但存在用户不友好、泛化能力不足的问题。
+
+
+	% 我们将致力于 %精力集中在了
+	% 的改进工作。
+	% 的一次尝试
+	%。
+	% 具体地，我们首先实现了一套基于单物体单图像的三维点云重建系统。其读取单张 RGB 图像，以点云的形式，重建并输出图中物体的三维形态。
+	通过将已有的重建算法与图像生成任务中的经典算法%进行
+	有机结合，同时进一步改善训练数据集，
+	我们提出的新算法
+	不仅提高了原来的重建质量，而且还增强了输出的多样性，使得重建结果更加真实。
+	% 例如，用户可以对于多个重建结果进行加权平均，生成出介于各个模型间的一个中间形态。这在用户不容易得到目标物体图像的情况下很有意义。
+
+	本文的主要贡献有：
+	\begin{itemize}
+		\item 提出了一套更加自动、用户友好的三维重建系统：通过整合已有技术，用户不必再花费时间提供 mask 信息；
+		      % \item 提出了一套更加自动、用户友好的三维重建系统：用户不必像已有算法一样花费大量时间提供 mask 信息；
+		\item 改善了已有工作的重建质量：已有算法重建失败时，本文算法仍然能给出合理的重建结果；
+		\item 增加了模型的生成能力：%本文提出的算法
+		      %本工作能生成的物体并不局限于输入图像中记录的对象。
+		      本文算法比已有算法更灵活，能对多个重建结果进行插值，输出结果也更丰富多样。
+	\end{itemize}
+
+\end{cabstract}
+
+% 如果习惯关键字跟在摘要文字后面，可以用直接命令来设置，如下：
+% \ckeywords{\TeX, \LaTeX, CJK, 模板, 论文}
+
+\begin{eabstract}
+
+	With the rapid growth of Internet data and the development of computing hardware, computer vision and deep learning have made a rapid, unprecedented progress.
+	Currently, existing work %have been able to
+	can achieve appreciable results in image classification, image generation and other tasks.
+	However, for the tasks requiring the analysis and understanding of 3D objects, related research is still at an early stage.
+	Compared with 2D data such as images and videos, 3D data is in various forms.
+	Irregular representations such as point clouds and meshes are difficult to be handled by traditional algorithms directly. This also restricts the development of 3D deep learning.
+
+	PointSetGen\cite{pointsetgen} is the first work to introduce point clouds into 3D deep learning.
+	This work could reconstruct the 3D structure of the object from a single image, in the form of the point cloud,
+	but it is not user-friendly and lacks generalization capability.
+
+
+	This thesis is an attempt and improvement on the above issues.
+	% This thesis is an attempt to work on this challenge. We are committed to improving the results of 3D objects reconstruction task in the point cloud, based on a single image. 
+	By combining PointSetGen with classical algorithms in the image generation tasks, while further improving the training data set, we not only improved the reconstruction quality of the original algorithm, but also enhanced the diversity of the output, making the results more realistic.% and not limited to the input image.
+
+	The main contributions of this study can be summarized as follows:
+	\begin{itemize}
+		\item We proposed a more automated and user-friendly 3D reconstruction system:
+		      by integrating existing technologies, users no longer have to spend time providing mask information;
+		\item We improved the reconstruction quality of existing work:
+		      when existing algorithm fails, our algorithm can still provide reasonable reconstruction
+		      results;
+		\item We enhanced the generation capacity of the model:
+		      our algorithm is more flexible than existing algorithms and able to interpolate multiple reconstruction results, making the output results more abundant and diverse.
+	\end{itemize}
+
+
+\end{eabstract}
+
+% \ekeywords{\TeX, \LaTeX, CJK, template, thesis}

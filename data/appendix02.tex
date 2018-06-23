@@ -1,0 +1,296 @@
+\chapter{本工作的网络架构设计与超参数细节}
+\label{cha:detail}
+
+\section{概述}
+在本工作中，
+我们使用 Blender 2.79 渲染 ShapeNet\cite{shapenet} 数据集的三维模型，得到对应的二维图像数据。Blender 提供了命令行支持，可以配合 \texttt{find}、\texttt{xargs} 等 Linux 命令和管道
+，高效地完成批量的渲染任务%，而无需繁琐的图形用户界面
+。二维图像以无损的 PNG (Portable Network Graphics) 格式存储。
+
+此外，我们使用 TensorFlow 1.7.1 搭建并训练所有的深度神经网络。
+其中，除了推土机距离 \eqref{eq:emd} 使用了自定义的 CUDA %代码
+程序计算外，其他模块均
+%直接使用
+采用了 TensorFlow 的原生实现。
+对于本工作而言，
+% 具体地，
+深度神经网络的训练包括以下四个阶段：
+\begin{itemize}
+	\item 训练 点云自编码器（图 \ref{fig:mystructure} 橙红色部分）；
+	\item 训练 Mask 生成模块（图 \ref{fig:mystructure} 青色部分）；
+	\item 训练 图像特征提取模块（图 \ref{fig:mystructure} 黄色部分）；
+	\item 训练 VAE/GAN（图 \ref{fig:mystructure} 绿色部分）。
+\end{itemize}
+其中前两个阶段以及后两个阶段分别可以并行地完成。
+每阶段的训练结束后，我们随即固定在此阶段训练出的全部权值。
+
+在训练过程中，mask 生成模块对于所有类型的物体共用一套网络，而点云自编码器模块、图像特征提取模块以及 VAE/GAN 模块对于每一类物体单独训练一套网络。
+因为 mask 生成模块不仅能够提供物体的 mask 信息，还能给出物体所属的类别，
+所以在测试过程中，由 mask 生成模块提供的物体类别信息，指示着后续环节应具体采用哪一套网络。因此，整个三维重建系统仍然是全自动的，无需用户交互。
+
+\section{网络架构设计}
+在本工作中，点云 $S$ 中包含的点数量为 $N = \numprint{2048}$，低维特征向量 $z$ 的维数为 $256$，VAE/GAN 隐向量 $r$ 的维数为 $64$；每个小批次 (Mini-batch) 含有 $B = 32$ 组数据。输入图像的尺寸为 $H \times W$，其中 $H = 192$，$W = 256$。
+
+为描述简洁，我们
+\begin{itemize}
+	\item 使用 \textbf{FC}   表示全连接 (Fully Connected) 层；
+	\item 使用 \textbf{Conv$(s)$} 表示核大小为 $s \times s$ 的卷积 (Convolution) 层，\textbf{Conv/2$(s)$} 表示跨步 (Stride) 为 2 且核大小为 $s \times s$ 的卷积层；
+	\item 使用 \textbf{Max}  表示逐元素最大值 (Element-wise Maximum)；
+	\item 使用 \textbf{Reshape}  表示仅改变输出张量的尺寸，不改变其内容的层；
+	\item 使用 \textbf{BN}   表示批标准化 (Batch Normalization) \cite{bn} 层；
+	\item 使用 \textbf{ReLU} 表示线性整流单元 (Rectified Linear Unit) \cite{relu}；
+	      \textbf{lReLU$(\lambda)$} 表示带泄露的线性整流单元 (Leaky Rectified Linear Unit, Leaky ReLU)\cite{lrelu}，其中 $\lambda$ 表示 输入小于 0 时的导数值；
+	\item 使用 \textbf{SN}   表示谱标准化 (Spectral Normalization) \cite{sngan} 层。
+\end{itemize}
+
+\subsection{点云自编码器}
+在本工作中，点云自编码器使用了 PointNet\cite{pointnet} 和全连接结构。虽然 PointSetGen\cite{pointsetgen} 工作采用了双分支、hourglass 等更复杂的结构生成点云，
+但我们发现，简单全连接层的表现已经相当出色。
+值得注意的是，在 PointNet 中，共享权值的全连接层可以通过核大小为 $1$ 的卷积层实现。
+
+点云编码器 $E_{\text{AE}}$ 的网络架构如表 \ref{tab:spec:outen} 所示；
+点云解码器 $D_{\text{AE}}$ 的网络架构如表 \ref{tab:spec:outde} 所示。
+
+
+\begin{table}[h]
+	\centering
+	\caption{点云编码器 $E_{\text{AE}}$ 的网络架构}
+	\label{tab:spec:outen}
+	\begin{tabular}{C{8cm}C{4cm}}
+		\toprule[1.5pt]
+		{\heiti 网络层}                                  & {\heiti 尺寸}                       \\
+		\midrule[1pt]
+		输入点云 $S$                                     & $B \times N \times 3$               \\
+		\hdashline
+		Conv$(1)$（权值共享 FC） \, | \, BN \, | \, ReLU & $B \times N \times 64$              \\
+		Conv$(1)$ \, | \, BN \, | \, ReLU                & $B \times N \times 128$             \\
+		Conv$(1)$ \, | \, BN \, | \, ReLU                & $B \times N \times 256$             \\
+		Conv$(1)$ \, | \, BN \, | \, ReLU                & $B \times N \times 512$             \\
+		Conv$(1)$ \, | \, BN \, | \, ReLU                & $B \times N \times \numprint{1024}$ \\
+		Max                                              & $B \times \numprint{1024}$          \\
+		FC \, | \, BN \, | \, ReLU                       & $B \times 512$                      \\
+		FC                                               & $B \times 256$                      \\
+		\hdashline
+		输出低维特征 $\bm z$                             & $B \times 256$                      \\
+		\bottomrule[1.5pt]
+	\end{tabular}
+\end{table}
+
+\begin{table}[h]
+	\centering
+	\caption{点云解码器 $D_{\text{AE}}$ 的网络架构}
+	\label{tab:spec:outde}
+	\begin{tabular}{C{8cm}C{4cm}}
+		\toprule[1.5pt]
+		{\heiti 网络层}          & {\heiti 尺寸}              \\
+		\midrule[1pt]
+		输入低维特征 $\bm  z$    & $B \times 256$             \\
+		\hdashline
+		FC \, | \, ReLU          & $B \times 512$             \\
+		FC \, | \, ReLU          & $B \times \numprint{1024}$ \\
+		FC \, | \, ReLU          & $B \times \numprint{2048}$ \\
+		FC \, | \, ReLU          & $B \times \numprint{4196}$ \\
+		FC                       & $B \times 6144$            \\
+		$0.5 \cdot \tanh(\cdot)$ & $B \times 6144$            \\
+		Reshape                  & $B \times N \times 3$      \\
+		\hdashline
+		输出点云 $S^{\prime}$    & $B \times N \times 3$      \\
+		\bottomrule[1.5pt]
+	\end{tabular}
+\end{table}
+
+
+
+\subsection{Mask 生成模块}
+Mask 生成模块 $M$ 的网络架构与 Mask R-CNN\cite{maskrcnn} 完全相同，此处不再赘述。
+
+\subsection{图像特征提取模块}
+
+图像特征提取模块 $E_{\text{Image}}$ 是一个经典的卷积神经网络，如表 \ref{tab:spec:outimg} 所示。
+其中，输入图像 $\bm I$ 提供了三个通道 RGB，而 mask 提供了一个通道 A，因此输入共有四个通道。
+将图像传送给此模块前，需要将各通道值归一化到 $[0, 1]$ 的范围内
+。
+此模块将图像中的三维物体编码到与点云自编码器相同的低维特征空间 $z$ 中。
+
+
+\begin{longtable}[c]{C{8cm}C{4cm}}
+
+	\caption{图像特征提取模块 $E_{\text{Image}}$ 的网络架构}
+	\label{tab:spec:outimg}                                                                    \\
+
+	\toprule[1.5pt]
+	{\heiti 网络层}                       & {\heiti 尺寸}                                      \\
+	\midrule[1pt]
+
+	\endfirsthead
+
+	\multicolumn{2}{c}{续表 \thetable\hskip1em 图像特征提取模块 $E_{\text{Image}}$ 的网络架构} \\
+	\toprule[1.5pt]
+	{\heiti 网络层}                       & {\heiti 尺寸}                                      \\
+	\midrule[1pt]
+
+	\endhead
+
+	\bottomrule[1.5pt] %\hline
+	\multicolumn{2}{r}{续下页}
+	\endfoot
+	\endlastfoot
+
+	输入图像 $\bm I$ 及其 mask $M(\bm I)$ & $B \times H \times W \times (3 + 1)$               \\
+	\hdashline
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 192 \times 256 \times 16$                \\
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 192 \times 256 \times 16$                \\
+	Conv/2$(3)$ \, | \, BN \, | \, ReLU   & $B \times 96 \times 128 \times 32$                 \\[5pt]
+	%
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 96 \times 128 \times 32$                 \\
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 96 \times 128 \times 32$                 \\
+	Conv/2$(3)$ \, | \, BN \, | \, ReLU   & $B \times 48 \times 64 \times 64$                  \\[5pt]
+
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 48 \times 64 \times 64$                  \\
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 48 \times 64 \times 64$                  \\
+	Conv/2$(3)$ \, | \, BN \, | \, ReLU   & $B \times 24 \times 32 \times 128$                 \\[5pt]
+
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 24 \times 32 \times 128$                 \\
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 24 \times 32 \times 128$                 \\
+	Conv/2$(3)$ \, | \, BN \, | \, ReLU   & $B \times 12 \times 16 \times 256$                 \\[5pt]
+
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 12 \times 16 \times 256$                 \\
+	Conv$(3)$ \, | \, BN \, | \, ReLU     & $B \times 12 \times 16 \times 256$                 \\
+	Conv/2$(3)$ \, | \, BN \, | \, ReLU   & $B \times 6 \times 8 \times 512$                   \\[5pt]
+
+	Conv$(5)$ \, | \, BN \, | \, ReLU     & $B \times 6 \times 8 \times 512$                   \\
+	Conv$(5)$ \, | \, BN \, | \, ReLU     & $B \times 6 \times 8 \times 512$                   \\
+	Conv/2$(5)$ \, | \, BN \, | \, ReLU   & $B \times 4 \times 3 \times 512$                   \\[5pt]
+
+	Reshape                               & $B \times \numprint{6144}$                         \\
+	FC \, | \, BN \, | \, ReLU            & $B \times \numprint{2048}$                         \\
+	FC \, | \, BN \, | \, ReLU            & $B \times \numprint{1024}$                         \\
+	FC                                    & $B \times \numprint{256}$                          \\
+	\hdashline
+	输出低维特征 $z$                      & $B \times 256$                                     \\
+	\bottomrule[1.5pt]
+\end{longtable}
+
+\subsection{VAE/GAN}
+VAE/GAN 模块包括变分自编码器 $q(\bm r | \bm z)$、判别器 $D_{\text{GAN}}(\bm z)$、
+生成器 $G_{\text{GAN}}(\bm r)$ 三部分。此模块的主要功能是在 $\bm z$ 所属的 256 维特征空间中找到一个更优的
+64 维子特征空间
+\footnote{严格地，这里的特征空间可能会由于网络参数的简并而退化，使得其维数更低。
+	但在实践中，此现象发生的概率很低，可以忽略不计。}，
+%从而实现增强重建质量与提升用户可控性这两点需求。
+从而增强重建质量，并提升用户可控性。
+
+由于我们已经得到了点云的低维特征 $\bm z$，因此变分自编码器 $q(\bm r | \bm z)$、生成器 $G_{\text{GAN}}(\bm r)$ 和 判别器 $D_{\text{GAN}}(\bm z)$ 都可以通过简单的多层感知机实现，见表 \ref{tab:spec:ven}、\ref{tab:spec:gen}、\ref{tab:spec:dis}。
+
+\begin{table}[!hp]
+	\centering
+	\caption{变分自编码器 $q(\bm r | \bm z) =
+			\NormDist\left(\bm \mu, \mathrm{diag}(\bm\Sigma)\right)$ 的网络架构}
+	\label{tab:spec:ven}
+	\begin{tabular}{C{8cm}C{4cm}}
+		\toprule[1.5pt]
+		{\heiti 网络层}                                                                                                       & {\heiti 尺寸}              \\
+		\midrule[1pt]
+		输入低维特征 $\bm  z$                                                                                                 & $B \times 256$             \\
+		\hdashline
+		FC \, | \, BN \, | \, ReLU                                                                                            & $B \times 128$             \\
+		FC \, | \, BN \, | \, ReLU                                                                                            & $B \times 256$             \\
+		FC \, | \, BN \, | \, ReLU                                                                                            & $B \times 256$             \\
+		FC \, | \, BN \, | \, ReLU                                                                                            & $B \times 512$             \\
+		FC \, | \, BN \, | \, ReLU                                                                                            & $B \times 512$             \\
+		FC ($\bm \mu$); FC ($\log({\bm\Sigma})$)                                                                              & $B \times 64; B \times 64$ \\
+		\hdashline
+		输出 $\bm r = \bm \mu + \exp(\log{(\bm\Sigma)} / 2) \odot \bm \epsilon, \; \bm \epsilon \sim \NormDist(\bm 0, \bm I)$ & $B \times 64$              \\
+		\bottomrule[1.5pt]
+	\end{tabular}
+\end{table}
+
+\begin{table}[!hp]
+	\centering
+	\caption{生成器 $G_{\text{GAN}}(\bm r)$ 的网络架构}
+	\label{tab:spec:gen}
+	\begin{tabular}{C{8cm}C{4cm}}
+		\toprule[1.5pt]
+		{\heiti 网络层}            & {\heiti 尺寸}  \\
+		\midrule[1pt]
+		输入隐变量 $\bm  r$        & $B \times 64$  \\
+		\hdashline
+		FC \, | \, BN \, | \, ReLU & $B \times 64$  \\
+		FC \, | \, BN \, | \, ReLU & $B \times 128$ \\
+		FC \, | \, BN \, | \, ReLU & $B \times 128$ \\
+		FC \, | \, BN \, | \, ReLU & $B \times 256$ \\
+		FC                         & $B \times 256$ \\
+		\hdashline
+		输出低维特征 $\bm z$       & $B \times 256$ \\
+		\bottomrule[1.5pt]
+	\end{tabular}
+\end{table}
+
+
+\begin{table}[!hp]
+	\centering
+	\caption{判别器 $D_{\text{GAN}}(\bm z)$ 的网络架构}
+	\label{tab:spec:dis}
+	\begin{tabular}{C{8cm}C{4cm}}
+		\toprule[1.5pt]
+		{\heiti 网络层}                                              & {\heiti 尺寸}  \\
+		\midrule[1pt]
+		输入低维特征 $\bm z$                                         & $B \times 256$ \\
+		\hdashline
+		FC \, | \, SN \, | \, lReLU$(0.1)$                           & $B \times 128$ \\
+		FC \, | \, SN \, | \, lReLU$(0.1)$                           & $B \times 256$ \\
+		FC \, | \, SN \, | \, lReLU$(0.1)$                           & $B \times 256$ \\
+		FC \, | \, SN \, | \, lReLU$(0.1)$                           & $B \times 512$ \\
+		FC \, | \, SN \, | \, lReLU$(0.1)$                           & $B \times 512$ \\
+		FC \, | \, SN                                                & $B \times 1$   \\
+		$\text{sigmoid}(\bm x) = 1 / \left( 1+\exp(- \bm x) \right)$ & $B \times 1$   \\
+		\hdashline
+		输出鉴别结果：$ \bm z$ 是真实数据的概率                      & $B \times 1$   \\
+		\bottomrule[1.5pt]
+	\end{tabular}
+\end{table}
+
+\section{超参数的选取}
+在本工作中，所有参数的初始化算法均为 Xavier\cite{xavier}。此外，我们还采用了 $L_2$ 正则化方法防止过拟合现象，其系数为 $0.01$。所有批标准化\cite{bn}层的动量均为 0.9。
+在数据集方面，我们的训练集大小与测试集大小之比为 $95\% : 5\%$。
+
+训练过程使用了 Adam\cite{adam} 算法。对于 VAE/GAN 的训练，Adam 的动量衰减因子 $\beta_1 = 0.5, \beta_2 = 0.999$，而对于点云自编码器和图像特征提取模块， $\beta_1 = 0.9, \beta_2 = 0.999$。除 Mask 生成模块和点云自编码器的后 \numprint{50000} 步以外，训练时所采用的学习率均为 $1 \times 10^{-4}$。
+
+% 各阶段训练所用的损失函数为式 \eqref{eq:aeloss}、\ref{eq:myimloss}、\ref{eq:myvaeganloss} 和 \ref{eq:vaegantrain3}。
+对于点云自编码器，我们使用点云的推土机距离 \eqref{eq:emd} 作为损失函数。
+训练过程包括 \numprint{250000} 步梯度下降。从第 \numprint{200001} 步起，学习率调整为 $5 \times 10^{-5}$。
+
+对于图像特征提取模块，我们使用式 \eqref{eq:myimloss} 作为损失函数。
+训练过程包括 \numprint{100000} 步梯度下降。
+
+对于 VAE/GAN，我们使用式 \eqref{eq:myvaeganloss} 和 \eqref{eq:vaegantrain} 作为损失函数和训练方法，其中平衡因子 $\lambda_{\text{KL}} = 0.1$，$\lambda_{\text{reconstruct}} = 1.0$，$\lambda_D = 1.0$，$\lambda_G = 1.0$。
+训练过程包括 \numprint{1000000} 步梯度下降，其中每一步梯度下降包括先后五次 判别器 $D_{\text{GAN}}(\bm z)$ 的优化 \eqref{eq:vaegantrain1}、一次变分自编码器 $q(\bm r | \bm z)$ 的优化 \eqref{eq:vaegantrain2} 以及一次生成器 $G_{\text{GAN}}(\bm r)$ 的优化 \eqref{eq:vaegantrain3}。
+
+对于 Mask 生成模块，所有的超参数的选择与训练方法都与文献 \inlinecite{maskrcnn} 一致，此处不再赘述。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
