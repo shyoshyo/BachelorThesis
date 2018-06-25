@@ -1915,8 +1915,9 @@
 \newcommand\listequationname{公式索引}
 \newcommand\equationname{公式}
 \ifthu@bachelor
+  \newfontfamily\arial[Mapping=tex-text]{Arial}
   \newcommand{\cabstractname}{中文摘要}
-  \newcommand{\eabstractname}{ABSTRACT}
+  \newcommand{\eabstractname}{{\arial ABSTRACT}}
 \else
   \newcommand{\cabstractname}{摘\hspace{\ccwd}要}
   \newcommand{\eabstractname}{Abstract}

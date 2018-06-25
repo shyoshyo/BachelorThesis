@@ -255,3 +255,6 @@ thuthesis.pdf
 dtx-style.sty
 
 
+thuthesis.cfg
+thuthesis.cls
+latexmkrc
